@@ -1,0 +1,24 @@
+layout (local_size_x = 1024, local_size_y = 1) in;
+
+layout(std430, binding = 0) buffer dead_indices {
+  int dead_indices_buffer[];
+};
+
+layout(std430, binding = 1) buffer alive_indices_now {
+  int alive_indices_buffer[];
+};
+
+uniform int alive_num;
+uniform int dead_num;
+uniform int spawn_count;
+
+void main()
+{
+    uvec2 size = uvec2(gl_WorkGroupSize.xy) * gl_NumWorkGroups.xy;
+    uvec2 process_pos = gl_GlobalInvocationID.xy;
+    int process_index = int(process_pos.y * size.x + process_pos.x);
+
+    if (process_index < spawn_count) {
+        alive_indices_buffer[alive_num + process_index] = dead_indices_buffer[dead_num - 1 - process_index];
+    }
+}

@@ -1,0 +1,65 @@
+layout (local_size_x = 1024, local_size_y = 1) in;
+
+layout(std430, binding = 0) buffer alive_indices_now {
+  int alive_indices_buffer[];
+};
+
+layout(std430, binding = 1) buffer target_position_sbo {
+  vec4 target_position_vec[];
+};
+
+layout(std430, binding = 2) buffer source_position_sbo {
+  vec4 source_position_vec[];
+};
+
+layout(std430, binding = 3) buffer rand_seed_sbo {
+  uint rand_seed_vec[];
+};
+
+layout(std430, binding = 4) buffer obj_nodes_sbo {
+  float obj_nodes_vec[];
+};
+
+uniform int spawn_count;
+uniform int alive_num;
+uniform int tri_num;
+uniform float scale;
+uniform vec3 src_pos;
+
+uint rng_lcg(inout uint prev) {
+    const uint LCG_A = 1664525u;
+    const uint LCG_C = 1013904223u;
+    prev = (LCG_A * prev + LCG_C);
+    return prev & 0x00FFFFFF;
+}
+
+float rand_0_1(inout uint prev) {
+    return float(rng_lcg(prev)) / (0x00FFFFFF);
+}
+
+vec3 sample_triangle(vec3 a, vec3 b, vec3 c, inout uint rand_seed) {
+  float r1 = rand_0_1(rand_seed);
+  float r2 = rand_0_1(rand_seed);
+  vec3 res = (1 - sqrt(r1)) * a + (1 - r2) * sqrt(r1) * b + r2 * sqrt(r1) * c;
+  return res;
+}
+
+void main()
+{
+    uvec2 size = uvec2(gl_WorkGroupSize.xy) * gl_NumWorkGroups.xy;
+    uvec2 process_pos = gl_GlobalInvocationID.xy;
+    int process_index = int(process_pos.y * size.x + process_pos.x);
+
+    if (process_index < spawn_count) {
+        int idx = alive_indices_buffer[alive_num - 1 - process_index];
+        int tri_idx = int(rand_0_1(rand_seed_vec[idx]) * tri_num);
+        // todo
+        vec3 a = vec3(obj_nodes_vec[9 * tri_idx + 0], obj_nodes_vec[9 * tri_idx + 1], obj_nodes_vec[9 * tri_idx + 2]);
+        vec3 b = vec3(obj_nodes_vec[9 * tri_idx + 3], obj_nodes_vec[9 * tri_idx + 4], obj_nodes_vec[9 * tri_idx + 5]);
+        vec3 c = vec3(obj_nodes_vec[9 * tri_idx + 6], obj_nodes_vec[9 * tri_idx + 7], obj_nodes_vec[9 * tri_idx + 8]);
+
+        target_position_vec[idx] = vec4(sample_triangle(a, b, c, rand_seed_vec[idx]), 0);
+        target_position_vec[idx] = target_position_vec[idx] * scale + vec4(src_pos, 0);
+        source_position_vec[idx] = vec4(src_pos, 0);
+    }
+}

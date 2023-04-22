@@ -1,0 +1,52 @@
+layout (local_size_x = 1024, local_size_y = 1) in;
+
+layout(std430, binding = 0) buffer dead_indices {
+  int dead_indices_buffer[];
+};
+
+layout(std430, binding = 1) buffer alive_indices_now {
+  int alive_indices_buffer[];
+};
+
+layout(std430, binding = 2) buffer alive_indices_next {
+  int alive_indices_new_buffer[];
+};
+
+layout(std430, binding = 3) buffer particle_count_buffer {
+  ivec4 particle_count; // dead_num/alive_num/new_alive_num/0
+};
+
+layout(std430, binding = 4) buffer liftime_buffer {
+  float liftime_vec[];
+};
+
+layout(std430, binding = 5) buffer max_liftime_buffer {
+  float max_liftime_vec[];
+};
+
+uniform float dt;
+
+void main()
+{
+    uvec2 size = uvec2(gl_WorkGroupSize.xy) * gl_NumWorkGroups.xy;
+    uvec2 process_pos = gl_GlobalInvocationID.xy;
+    int process_index = int(process_pos.y * size.x + process_pos.x);
+
+    int alive_num = particle_count[1];
+
+    if (process_index < alive_num) {
+        int particle_index = alive_indices_buffer[process_index];
+        liftime_vec[particle_index] = liftime_vec[particle_index] + dt;
+
+        if (liftime_vec[particle_index] < max_liftime_vec[particle_index]) {
+            // continue alive
+            int new_alive_index;
+            new_alive_index = atomicAdd(particle_count[2], 1);
+            alive_indices_new_buffer[new_alive_index] = particle_index;
+        } else {
+            // kill it
+            int new_dead_index = atomicAdd(particle_count[0], 1);
+            dead_indices_buffer[new_dead_index] = particle_index;
+        }
+    }
+}

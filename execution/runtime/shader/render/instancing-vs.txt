@@ -1,0 +1,49 @@
+layout (location = 0) in vec3 vertex_position;
+layout (location = 1) in vec2 vertex_texcoord;
+
+uniform mat4 view_to_clip_matrix;
+uniform mat4 world_to_view_matrix;
+uniform mat4 model_matrix;
+uniform vec3 camera_right_view_space;
+uniform vec3 camera_up_view_space;
+uniform vec3 camera_back_view_space;
+ 
+layout(std430, binding = 0) buffer layout_particle_buffer0 {
+    int alive_indice[];
+};
+layout(std430, binding = 1) buffer layout_particle_buffer1 {
+    vec3 particle_position[];
+};
+layout(std430, binding = 2) buffer layout_particle_buffer2 {
+    vec2 particle_size[];
+};
+layout(std430, binding = 3) buffer layout_particle_buffer3 {
+    vec4 particle_color[];
+};
+
+out vec4 color;
+
+void main()
+{
+    int particle_index = gl_InstanceID;
+    int current_index = alive_indice[particle_index];
+
+    mat3 size_mat = mat3(1.0);
+    size_mat[0][0] = particle_size[current_index].x;
+    size_mat[1][1] = particle_size[current_index].y;
+    size_mat[2][2] = 1.0;
+
+    mat4 mat_view_trans = mat4(1.0);
+    mat_view_trans[3] = world_to_view_matrix[3];//保证不旋转
+
+    vec3 pos = size_mat * vertex_position;
+    vec3 p = camera_right_view_space * pos.x + camera_up_view_space * pos.y;
+    vec3 view_pos = vec3(mat_view_trans * vec4(p,0.0));
+
+    view_pos += vec3(world_to_view_matrix * model_matrix * vec4(particle_position[current_index].xyz,1.0));
+
+    gl_Position = view_to_clip_matrix * vec4(view_pos,1.0);
+    
+    color = particle_color[current_index];
+}
+

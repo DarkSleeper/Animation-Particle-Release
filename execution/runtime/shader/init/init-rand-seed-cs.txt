@@ -1,0 +1,39 @@
+layout (local_size_x = 1024, local_size_y = 1) in;
+
+layout(std430, binding = 0) buffer alive_indices_now {
+  int alive_indices_buffer[];
+};
+
+layout(std430, binding = 1) buffer rand_seed_sbo {
+  uint rand_seed_vec[];
+};
+
+uniform int spawn_count;
+uniform int alive_num;
+uniform uint current_time;
+
+uint rng_tea(uint val0, uint val1) {
+    uint v0 = val0;
+    uint v1 = val1;
+    uint s0 = 0;
+
+    for (int n = 0; n < 16; n++) {
+        s0 += 0x9e3779b9;
+        v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
+        v1 += ((v0 << 4) + 0xad90777d) ^ (v0 + s0) ^ ((v0 >> 5) + 0x7e95761e);
+    }
+
+    return v0;
+}
+
+void main()
+{
+    uvec2 size = uvec2(gl_WorkGroupSize.xy) * gl_NumWorkGroups.xy;
+    uvec2 process_pos = gl_GlobalInvocationID.xy;
+    int process_index = int(process_pos.y * size.x + process_pos.x);
+
+    if (process_index < spawn_count) {
+        uint idx = alive_indices_buffer[alive_num - 1 - process_index];
+        rand_seed_vec[idx] = rng_tea(idx, current_time);
+    }
+}

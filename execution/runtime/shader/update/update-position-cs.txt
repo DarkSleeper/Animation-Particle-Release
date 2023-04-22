@@ -1,0 +1,64 @@
+layout (local_size_x = 1024, local_size_y = 1) in;
+
+layout(std430, binding = 0) buffer alive_indices_now {
+  int alive_indices_buffer[];
+};
+
+layout(std430, binding = 1) buffer position_sbo {
+  vec4 position_vec[];
+};
+
+layout(std430, binding = 2) buffer target_position_sbo {
+  vec4 target_position_vec[];
+};
+
+layout(std430, binding = 3) buffer source_position_sbo {
+  vec4 source_position_vec[];
+};
+
+layout(std430, binding = 4) buffer lifetime_sbo {
+  float lifetime_vec[];
+};
+
+layout(std430, binding = 5) buffer max_lifetime_sbo {
+  float max_lifetime_vec[];
+};
+
+uniform int alive_num;
+uniform int row_num;
+uniform vec2 c0;
+uniform vec2 c1;
+uniform vec2 c2;
+uniform vec2 c3;
+
+float curve(float t, vec2 v0, vec2 v1) 
+{
+  return v0.y + (t - v0.x) / (v1.x - v0.x) * (v1.y - v0.y);
+}
+
+void main()
+{
+    uvec2 size = uvec2(gl_WorkGroupSize.xy) * gl_NumWorkGroups.xy;
+    uvec2 process_pos = gl_GlobalInvocationID.xy;
+    int process_index = int(process_pos.y * size.x + process_pos.x);
+
+    if (process_index < alive_num) {
+        int idx = alive_indices_buffer[process_index];
+        float curve_t = lifetime_vec[idx] / max_lifetime_vec[idx];
+        float alpha;
+        if (curve_t < c0.x) {
+          alpha = curve(curve_t, vec2(0, 0), c0);
+        } else if (curve_t < c1.x) {
+          alpha = curve(curve_t, c0, c1);
+        } else if (curve_t < c2.x) {
+          alpha = curve(curve_t, c1, c2);
+        } else if (curve_t < c3.x) {
+          alpha = curve(curve_t, c2, c3);
+        } else {
+          alpha = curve(curve_t, c3, vec2(1, 1));
+        }
+        clamp(alpha, 0, 1);
+
+        position_vec[idx] = (1 - alpha) * source_position_vec[idx] + alpha * target_position_vec[idx];
+    }
+}

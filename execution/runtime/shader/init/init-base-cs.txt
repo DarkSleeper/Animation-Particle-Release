@@ -1,0 +1,52 @@
+layout (local_size_x = 1024, local_size_y = 1) in;
+
+layout(std430, binding = 0) buffer dead_indices {
+  int dead_indices_buffer[];
+};
+
+layout(std430, binding = 1) buffer alive_indices_now {
+  int alive_indices_buffer[];
+};
+
+layout(std430, binding = 2) buffer lifetime_sbo {
+  float lifetime_vec[];
+};
+
+layout(std430, binding = 3) buffer max_lifetime_sbo {
+  float max_lifetime_vec[];
+};
+
+layout(std430, binding = 4) buffer position_sbo {
+  vec4 position_vec[];
+};
+
+layout(std430, binding = 5) buffer size_sbo {
+  vec2 size_vec[];
+};
+
+layout(std430, binding = 6) buffer color_sbo {
+  vec4 color_vec[];
+};
+
+uniform int spawn_count;
+uniform int alive_num;
+uniform float max_lifetime;
+uniform vec3 init_position;
+uniform vec2 init_size;
+uniform vec4 init_color;
+
+void main()
+{
+    uvec2 size = uvec2(gl_WorkGroupSize.xy) * gl_NumWorkGroups.xy;
+    uvec2 process_pos = gl_GlobalInvocationID.xy;
+    int process_index = int(process_pos.y * size.x + process_pos.x);
+
+    if (process_index < spawn_count) {
+        int idx = alive_indices_buffer[alive_num - 1 - process_index];
+        lifetime_vec[idx] = 0.f;
+        max_lifetime_vec[idx] = max_lifetime;
+        position_vec[idx] = vec4(init_position, 0.0);
+        size_vec[idx] = init_size;
+        color_vec[idx] = init_color;
+    }
+}

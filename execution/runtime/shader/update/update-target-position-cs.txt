@@ -1,0 +1,24 @@
+layout (local_size_x = 1024, local_size_y = 1) in;
+
+layout(std430, binding = 0) buffer alive_indices_now {
+  int alive_indices_buffer[];
+};
+
+layout(std430, binding = 1) buffer target_position_sbo {
+  vec4 target_position_vec[];
+};
+
+uniform int alive_num;
+uniform float delta_drop;
+
+void main()
+{
+    uvec2 size = uvec2(gl_WorkGroupSize.xy) * gl_NumWorkGroups.xy;
+    uvec2 process_pos = gl_GlobalInvocationID.xy;
+    int process_index = int(process_pos.y * size.x + process_pos.x);
+
+    if (process_index < alive_num) {
+        int idx = alive_indices_buffer[process_index];
+        target_position_vec[idx] = delta_drop * vec4(0, 1, 0, 0) + target_position_vec[idx];
+    }
+}
